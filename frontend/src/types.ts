@@ -3,6 +3,7 @@ export type Verdict = "PASS" | "WARNING" | "BLOCK";
 export type Scenario = {
   id: string;
   name: string;
+  description?: string;
   date: string;
   weather: string;
   event: string;
@@ -24,8 +25,15 @@ export type Scenario = {
   riskFactors: string[];
   suggestedAction: string;
   salesHistory: number[];
+  salesSeries?: SalesPoint[];
   dataAvailability?: string;
   judgmentRiskFactor?: string;
+};
+
+export type SalesPoint = {
+  date: string;
+  value: number;
+  kind: "historical" | "forecast";
 };
 
 export type Judgment = {

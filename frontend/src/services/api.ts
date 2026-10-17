@@ -1,4 +1,4 @@
-import type { Judgment, Scenario } from "../types";
+import type { Judgment, Scenario, SalesPoint } from "../types";
 
 // Backend integration seam:
 // - GET /api/demo/scenarios -> Scenario[]
@@ -39,6 +39,7 @@ export async function getScenarios(): Promise<Scenario[]> {
       ],
       suggestedAction: item.description,
       salesHistory: [input.yesterdaySales],
+      salesSeries: (item.salesSeries ?? [{ date: new Date().toISOString().slice(0, 10), value: input.yesterdaySales, kind: "historical" }]) as SalesPoint[],
       dataAvailability: "The API currently provides one sales input, not a month-long time series.",
     };
   });
