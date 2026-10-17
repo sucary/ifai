@@ -6,6 +6,11 @@ import org.springframework.stereotype.Service;
 public class CustomerAiService {
 
     public AiDecision analyze(InventoryInput input) {
+        return analyze(input, false);
+    }
+
+    /** The fault switch is used only by the monitoring demo. */
+    public AiDecision analyze(InventoryInput input, boolean faulty) {
 
         int predictedSales = input.yesterdaySales();
 
@@ -35,6 +40,10 @@ public class CustomerAiService {
             );
         }
 
+        if (faulty) {
+            restock = Math.max(input.supplierMaxOrder() + 1, needed * 2);
+        }
+
         int predictedWaste = Math.min(
                 input.currentStock(),
                 input.expiringTomorrow()
@@ -47,6 +56,10 @@ public class CustomerAiService {
         String expirationRisk =
                 predictedWaste > 10 ? "HIGH" : "LOW";
 
+        String reasoning = faulty
+                ? "The customer's AI response is intentionally faulty for this monitoring scenario."
+                : "Recommendation based on yesterday's sales, events, promotions, stock and supplier limits.";
+
         return new AiDecision(
                 predictedSales,
                 predictedWaste,
@@ -54,8 +67,7 @@ public class CustomerAiService {
                 predictedSales * input.sellingPrice(),
                 stockoutRisk,
                 expirationRisk,
-                "Recommendation based on yesterday's sales, "
-                        + "events, promotions, stock and supplier limits."
+                reasoning
         );
     }
 }

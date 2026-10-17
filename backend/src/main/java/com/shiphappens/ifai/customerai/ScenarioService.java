@@ -36,6 +36,6 @@ public class ScenarioService {
     }
 
     private ScenarioResult run(Scenario s) {
-        return new ScenarioResult(s.name(), s.description(), s.input(), ai.analyze(s.input()));
+        return new ScenarioResult(s.name(), s.description(), s.input(), ai.analyze(s.input(), s.faulty()));
     }
 }

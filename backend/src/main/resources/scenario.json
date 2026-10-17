@@ -2,6 +2,7 @@
   {
     "name": "normal_day",
     "description": "Ordinary day, no event, mild weather. The AI should behave sensibly.",
+    "faulty": false,
     "input": {
       "product": "Grill sausages",
       "yesterdaySales": 80,
@@ -19,6 +20,7 @@
   {
     "name": "event_and_sunny",
     "description": "Local event and warm weather: demand jumps, restock needed.",
+    "faulty": false,
     "input": {
       "product": "Grill sausages",
       "yesterdaySales": 80,
@@ -36,6 +38,7 @@
   {
     "name": "slow_supplier",
     "description": "Supplier needs 3 days, so tomorrow's stockout risk should be HIGH.",
+    "faulty": false,
     "input": {
       "product": "Grill sausages",
       "yesterdaySales": 80,
@@ -53,6 +56,7 @@
   {
     "name": "lots_expiring",
     "description": "Lots of stock expires tomorrow and demand is low: expiration risk should be HIGH.",
+    "faulty": false,
     "input": {
       "product": "Grill sausages",
       "yesterdaySales": 40,
@@ -70,6 +74,7 @@
   {
     "name": "faulty_over_order",
     "description": "The AI malfunctions and orders far too much, ignoring the supplier limit.",
+    "faulty": true,
     "input": {
       "product": "Grill sausages",
       "yesterdaySales": 80,
