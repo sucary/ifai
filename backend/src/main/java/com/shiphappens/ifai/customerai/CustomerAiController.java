@@ -1,5 +1,4 @@
-public class CustomerAiController {
-    package com.shiphappens.ifai.customerai;
+package com.shiphappens.ifai.customerai;
 
 import org.springframework.web.bind.annotation.*;
 
@@ -19,5 +18,4 @@ public class CustomerAiController {
 
         return service.analyze(input);
     }
-}
 }
