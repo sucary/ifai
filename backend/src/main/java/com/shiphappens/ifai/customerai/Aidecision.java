@@ -1,5 +1,4 @@
-public class AiDecision {
-    package com.shiphappens.ifai.customerai;
+package com.shiphappens.ifai.customerai;
 
 public record AiDecision(
     int predictedSales,
@@ -10,4 +9,3 @@ public record AiDecision(
     String expirationRisk,
     String reasoning
 ) {}
-}

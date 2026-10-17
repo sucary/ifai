@@ -20,7 +20,19 @@ export type Scenario = {
   aiReasoning: string;
   verdict: Verdict;
   riskScore: number;
+  riskExposureEur?: number;
   riskFactors: string[];
   suggestedAction: string;
   salesHistory: number[];
+  dataAvailability?: string;
+  judgmentRiskFactor?: string;
+};
+
+export type Judgment = {
+  RiskScore: number;
+  createdAt: string | null;
+  id: number;
+  itemName: string;
+  riskFactor: string;
+  verdict: Verdict;
 };

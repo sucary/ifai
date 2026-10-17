@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowUpRight, Check, ChevronDown, ShieldCheck, ShieldX } from "lucide-react";
 import { getScenarios, runMonitoringCheck } from "./services/api";
-import type { Scenario, Verdict } from "./types";
+import type { Judgment, Scenario, Verdict } from "./types";
 
 const verdictCopy: Record<Verdict, { label: string; className: string }> = {
   PASS: { label: "Approved", className: "pass" },
@@ -11,11 +11,13 @@ const verdictCopy: Record<Verdict, { label: string; className: string }> = {
 
 function App() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [selectedId, setSelectedId] = useState("festival-day");
+  const [selectedId, setSelectedId] = useState("normal_day");
   const [status, setStatus] = useState<"idle" | "checking" | "complete">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const [judgments, setJudgments] = useState<Judgment[]>([]);
 
   useEffect(() => {
-    getScenarios().then(setScenarios);
+    getScenarios().then(setScenarios).catch((reason: Error) => setError(reason.message));
   }, []);
 
   const scenario = useMemo(
@@ -27,11 +29,19 @@ function App() {
 
   const runCheck = async () => {
     setStatus("checking");
-    await runMonitoringCheck(scenario);
-    setStatus("complete");
+    setError(null);
+    try {
+      setJudgments(await runMonitoringCheck());
+      setStatus("complete");
+    } catch (reason) {
+      setStatus("idle");
+      setError(reason instanceof Error ? reason.message : "Monitoring check failed.");
+    }
   };
 
-  const verdict = verdictCopy[scenario.verdict];
+  const judgment = judgments[scenarios.indexOf(scenario)];
+  const effectiveScenario = judgment ? { ...scenario, verdict: judgment.verdict, riskScore: judgment.RiskScore, judgmentRiskFactor: judgment.riskFactor } : scenario;
+  const verdict = verdictCopy[effectiveScenario.verdict];
 
   return (
     <main className="app-shell">
@@ -62,7 +72,7 @@ function App() {
         <Metric label="Current stock" value={`${scenario.currentStock}`} suffix="units" />
         <Metric label="Predicted sales" value={`${scenario.predictedSales}`} suffix="units" tone="blue" />
         <Metric label="AI recommended order" value={`${scenario.recommendedOrder}`} suffix="units" tone="orange" />
-        <Metric label="Risk score" value={`${scenario.riskScore}`} suffix="/ 100" tone={scenario.verdict === "PASS" ? "green" : "red"} />
+        <Metric label="Risk score" value={`${effectiveScenario.riskScore}`} suffix="/ 100" detail={effectiveScenario.riskExposureEur !== undefined ? `≈ €${effectiveScenario.riskExposureEur.toFixed(2)} exposure` : undefined} tone={effectiveScenario.verdict === "PASS" ? "green" : "red"} />
       </section>
 
       <div className="content-grid">
@@ -88,27 +98,28 @@ function App() {
 
       <section className="card chart-card">
         <div className="section-heading"><div><p className="eyebrow">SALES SIGNAL</p><h2>Historical sales vs. prediction</h2></div><div className="legend"><span className="legend-dot history" />Historical <span className="legend-dot forecast" />Forecast</div></div>
-        <div className="chart" aria-label="Sales history chart">
+        <p className="muted data-note">{scenario.dataAvailability}</p><div className="chart" aria-label="Sales history chart">
           {scenario.salesHistory.map((value, index) => <div className={`bar-group ${index === scenario.salesHistory.length - 1 ? "forecast-bar" : ""}`} key={`${value}-${index}`}><div className="bar" style={{ height: `${Math.max(20, (value / 240) * 100)}%` }} /><span>{index === scenario.salesHistory.length - 1 ? "Tomorrow" : `Day ${index + 1}`}</span></div>)}
         </div>
       </section>
 
       <section className={`verdict-card ${verdict.className}`}>
-        <div className="verdict-icon">{scenario.verdict === "PASS" ? <ShieldCheck /> : scenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
-        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{scenario.verdict}</h2><span>{verdict.label}</span></div><p>{scenario.suggestedAction}</p></div>
+        <div className="verdict-icon">{effectiveScenario.verdict === "PASS" ? <ShieldCheck /> : effectiveScenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
+        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{effectiveScenario.verdict}</h2><span>{verdict.label}</span></div><p>{effectiveScenario.suggestedAction}</p>{effectiveScenario.judgmentRiskFactor && <p className="muted">Signal: {effectiveScenario.judgmentRiskFactor}</p>}</div>
         <button className="primary-button" onClick={runCheck} disabled={status === "checking"}>{status === "checking" ? "Checking decision…" : status === "complete" ? "Check complete" : "Run monitoring check"}<ArrowUpRight size={17} /></button>
       </section>
 
       <div className="bottom-grid">
-        <section className="card risk-card"><div className="section-heading"><div><p className="eyebrow">RISK EXPLANATION</p><h2>What went wrong?</h2></div><div className={`score ${verdict.className}`}>{scenario.riskScore}<small>/100</small></div></div><ul>{scenario.riskFactors.map((factor) => <li key={factor}><span><Check size={13} /></span>{factor}</li>)}</ul></section>
-        <section className="card action-card"><p className="eyebrow">RECOMMENDED ACTION</p><h2>{scenario.verdict === "PASS" ? "Approve this decision" : scenario.verdict === "WARNING" ? "Review before ordering" : "Do not execute"}</h2><p className="muted">If gives the operator a clear next step instead of silently replacing the customer's AI.</p><button className="secondary-button">View full audit trail <ArrowUpRight size={16} /></button></section>
+        <section className="card risk-card"><div className="section-heading"><div><p className="eyebrow">RISK EXPLANATION</p><h2>What went wrong?</h2></div><div className={`score ${verdict.className}`}>{effectiveScenario.riskScore}<small>/100</small></div></div><ul>{effectiveScenario.riskFactors.map((factor) => <li key={factor}><span><Check size={13} /></span>{factor}</li>)}</ul></section>
+        <section className="card action-card"><p className="eyebrow">RECOMMENDED ACTION</p><h2>{effectiveScenario.verdict === "PASS" ? "Approve this decision" : effectiveScenario.verdict === "WARNING" ? "Review before ordering" : "Do not execute"}</h2><p className="muted">If gives the operator a clear next step instead of silently replacing the customer's AI.</p><button className="secondary-button" onClick={() => setError("A full audit-trail endpoint is not available yet. The latest monitoring results are shown above.")}>View full audit trail <ArrowUpRight size={16} /></button></section>
       </div>
-      <footer>IF / INVENTORY ASSURANCE <span>Demo data · Backend integration points are marked in services/api.ts</span></footer>
+      {error && <p className="error-message" role="alert">{error}</p>}
+      <footer>IF / INVENTORY ASSURANCE <span>Live scenario API · Forecast history and audit trail require additional backend endpoints</span></footer>
     </main>
   );
 }
 
-function Metric({ label, value, suffix, tone = "default" }: { label: string; value: string; suffix: string; tone?: string }) { return <div className={`metric ${tone}`}><span>{label}</span><strong>{value}<small>{suffix}</small></strong></div>; }
+function Metric({ label, value, suffix, detail, tone = "default" }: { label: string; value: string; suffix: string; detail?: string; tone?: string }) { return <div className={`metric ${tone}`}><span>{label}</span><strong>{value}<small>{suffix}</small></strong>{detail && <em>{detail}</em>}</div>; }
 function DataRow({ label, value }: { label: string; value: string }) { return <div className="data-row"><span>{label}</span><strong>{value}</strong></div>; }
 function MiniStat({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
 
