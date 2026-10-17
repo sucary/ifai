@@ -12,9 +12,11 @@ import java.util.List;
 @Service
 public class TurkuDatabaseService {
     private final Path databasePath;
+    private final CustomerAiService customerAiService;
 
-    public TurkuDatabaseService(@Value("${ifai.database.path:data/turku_data.sqlite}") String databasePath) {
+    public TurkuDatabaseService(@Value("${ifai.database.path:data/turku_data.sqlite}") String databasePath, CustomerAiService customerAiService) {
         this.databasePath = Path.of(databasePath);
+        this.customerAiService = customerAiService;
     }
 
     public List<DemoScenario> scenarios() {
@@ -50,20 +52,19 @@ public class TurkuDatabaseService {
         double eventFactor = eventFactor(c, productId, forecastDate);
         int predictedSales = Math.max(0, (int) Math.round(baseline * weekdayFactor * eventFactor));
         int usableStock = Math.max(0, currentStock - expiringTomorrow);
-        int needed = Math.max(0, predictedSales - usableStock);
-        int restock = needed >= minimumOrder ? Math.min(needed, maximumOrder) : 0;
-        int predictedWaste = Math.min(currentStock, expiringTomorrow);
-        String stockoutRisk = usableStock + restock < predictedSales ? "HIGH" : "LOW";
-        String expirationRisk = predictedWaste > 10 ? "HIGH" : "LOW";
+        int ifNeeded = Math.max(0, predictedSales - usableStock);
+        int ifRestock = ifNeeded >= minimumOrder ? Math.min(ifNeeded, maximumOrder) : 0;
+        String stockoutRisk = usableStock + ifRestock < predictedSales ? "HIGH" : "LOW";
+        String expirationRisk = Math.min(currentStock, expiringTomorrow) > 10 ? "HIGH" : "LOW";
         String weather = weather(c, forecastDate);
         String event = event(c, forecastDate);
-        String reasoning = "Calculated from Turku history_sales, inventory_snapshot, products, calendar and product factors.";
         List<SalesPoint> salesSeries = salesSeries(c, productId, forecastDate, baseline);
 
         InventoryInput input = new InventoryInput(productName, sale.salesUnits(), currentStock, expiringTomorrow,
             price, weather, !event.equals("None"), false, minimumOrder, maximumOrder, 1);
-        AiDecision decision = new AiDecision(predictedSales, predictedWaste, restock,
-            predictedSales * price, stockoutRisk, expirationRisk, reasoning);
+        // The customer's AI remains the single source of truth for the order.
+        // IF uses this database-derived context to independently check that decision.
+        AiDecision decision = customerAiService.analyze(input);
         String scenarioName = expirationRisk.equals("HIGH")
             ? "Expiry risk — " + productName
             : stockoutRisk.equals("HIGH")

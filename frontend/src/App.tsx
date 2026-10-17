@@ -11,7 +11,7 @@ const verdictCopy: Record<Verdict, { label: string; className: string }> = {
 
 function App() {
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
-  const [selectedId, setSelectedId] = useState("TKU_001");
+  const [selectedId, setSelectedId] = useState("normal_day");
   const [status, setStatus] = useState<"idle" | "checking" | "complete">("idle");
   const [error, setError] = useState<string | null>(null);
   const [judgments, setJudgments] = useState<Judgment[]>([]);
@@ -60,7 +60,7 @@ function App() {
         <div className="scenario-picker">
           <label htmlFor="scenario">Database scenario</label>
           <div className="select-wrap">
-            <select id="scenario" value={scenario.id} onChange={(event) => { setSelectedId(event.target.value); setStatus("idle"); }}>
+            <select id="scenario" value={scenario.id} onChange={(event) => { setSelectedId(event.target.value); setJudgments([]); setStatus("idle"); setError(null); }}>
               {scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
             <ChevronDown size={16} />

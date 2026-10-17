@@ -1,10 +1,6 @@
 import type { Judgment, Scenario, SalesPoint } from "../types";
 
-// Backend integration seam:
-// - GET /api/demo/scenarios -> Scenario[]
-// - GET /api/demo/scenarios/{id} -> Scenario
-// - POST /api/monitoring/evaluate -> monitoring result
-// Keep the UI dependent on these functions rather than on fetch calls directly.
+// Customer AI scenarios and IF monitoring results are kept behind this API seam.
 export async function getScenarios(): Promise<Scenario[]> {
   const response = await fetch("/api/scenarios");
   if (!response.ok) throw new Error(`Could not load scenarios (${response.status})`);
