@@ -1,5 +1,4 @@
-public class CustomerAiService {
-    package com.shiphappens.ifai.customerai;
+package com.shiphappens.ifai.customerai;
 
 import org.springframework.stereotype.Service;
 
@@ -59,5 +58,4 @@ public class CustomerAiService {
                 + "events, promotions, stock and supplier limits."
         );
     }
-}
 }
