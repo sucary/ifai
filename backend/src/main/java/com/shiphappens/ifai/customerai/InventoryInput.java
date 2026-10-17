@@ -1,3 +1,6 @@
+public class InventoryInput {
+    
+}
 package com.shiphappens.ifai.customerai;
 
 public record InventoryInput(
