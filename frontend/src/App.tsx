@@ -1,0 +1,115 @@
+import { useEffect, useMemo, useState } from "react";
+import { AlertTriangle, ArrowUpRight, Check, ChevronDown, ShieldCheck, ShieldX } from "lucide-react";
+import { getScenarios, runMonitoringCheck } from "./services/api";
+import type { Scenario, Verdict } from "./types";
+
+const verdictCopy: Record<Verdict, { label: string; className: string }> = {
+  PASS: { label: "Approved", className: "pass" },
+  WARNING: { label: "Review required", className: "warning" },
+  BLOCK: { label: "Blocked", className: "block" },
+};
+
+function App() {
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [selectedId, setSelectedId] = useState("festival-day");
+  const [status, setStatus] = useState<"idle" | "checking" | "complete">("idle");
+
+  useEffect(() => {
+    getScenarios().then(setScenarios);
+  }, []);
+
+  const scenario = useMemo(
+    () => scenarios.find((item) => item.id === selectedId) ?? scenarios[0],
+    [scenarios, selectedId],
+  );
+
+  if (!scenario) return <main className="loading-screen">Loading demo data…</main>;
+
+  const runCheck = async () => {
+    setStatus("checking");
+    await runMonitoringCheck(scenario);
+    setStatus("complete");
+  };
+
+  const verdict = verdictCopy[scenario.verdict];
+
+  return (
+    <main className="app-shell">
+      <header className="topbar">
+        <div className="brand"><span className="brand-mark">if</span><span>inventory assurance</span></div>
+        <div className="demo-label"><span className="live-dot" /> Monitoring demo</div>
+      </header>
+
+      <section className="hero">
+        <div>
+          <p className="eyebrow">CUSTOMER AI OVERSIGHT</p>
+          <h1>Can this inventory decision<br /><em>be trusted?</em></h1>
+          <p className="hero-copy">If checks an external AI's restocking decision against real-world business rules before it reaches the supply chain.</p>
+        </div>
+        <div className="scenario-picker">
+          <label htmlFor="scenario">Demo scenario</label>
+          <div className="select-wrap">
+            <select id="scenario" value={selectedId} onChange={(event) => { setSelectedId(event.target.value); setStatus("idle"); }}>
+              {scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <ChevronDown size={16} />
+          </div>
+          <span>{scenario.date}</span>
+        </div>
+      </section>
+
+      <section className="metric-grid">
+        <Metric label="Current stock" value={`${scenario.currentStock}`} suffix="units" />
+        <Metric label="Predicted sales" value={`${scenario.predictedSales}`} suffix="units" tone="blue" />
+        <Metric label="AI recommended order" value={`${scenario.recommendedOrder}`} suffix="units" tone="orange" />
+        <Metric label="Risk score" value={`${scenario.riskScore}`} suffix="/ 100" tone={scenario.verdict === "PASS" ? "green" : "red"} />
+      </section>
+
+      <div className="content-grid">
+        <section className="card input-card">
+          <div className="section-heading"><div><p className="eyebrow">01 / CONTEXT</p><h2>What If received</h2></div><span className="tag">Source data</span></div>
+          <div className="data-list">
+            <DataRow label="Weather" value={scenario.weather} />
+            <DataRow label="Event" value={scenario.event} />
+            <DataRow label="Promotion" value={scenario.promotion} />
+            <DataRow label="Historical average" value={`${scenario.historicalAverage} units / day`} />
+            <DataRow label="Supplier delivery" value={`${scenario.supplierDeliveryDays} days`} />
+            <DataRow label="Product life" value={`${scenario.expirationDays} days`} />
+          </div>
+        </section>
+
+        <section className="card ai-card">
+          <div className="section-heading"><div><p className="eyebrow">02 / EXTERNAL SYSTEM</p><h2>Customer AI decision</h2></div><span className="tag purple">Simulated</span></div>
+          <div className="ai-order"><span>Recommended order</span><strong>{scenario.recommendedOrder}<small> units</small></strong></div>
+          <p className="muted">“{scenario.aiReasoning}”</p>
+          <div className="mini-stats"><MiniStat label="Expected waste" value={`${scenario.predictedWaste} units`} /><MiniStat label="Stockout risk" value={`${scenario.stockoutRisk}%`} /><MiniStat label="Expiration risk" value={`${scenario.expirationRisk}%`} /></div>
+        </section>
+      </div>
+
+      <section className="card chart-card">
+        <div className="section-heading"><div><p className="eyebrow">SALES SIGNAL</p><h2>Historical sales vs. prediction</h2></div><div className="legend"><span className="legend-dot history" />Historical <span className="legend-dot forecast" />Forecast</div></div>
+        <div className="chart" aria-label="Sales history chart">
+          {scenario.salesHistory.map((value, index) => <div className={`bar-group ${index === scenario.salesHistory.length - 1 ? "forecast-bar" : ""}`} key={`${value}-${index}`}><div className="bar" style={{ height: `${Math.max(20, (value / 240) * 100)}%` }} /><span>{index === scenario.salesHistory.length - 1 ? "Tomorrow" : `Day ${index + 1}`}</span></div>)}
+        </div>
+      </section>
+
+      <section className={`verdict-card ${verdict.className}`}>
+        <div className="verdict-icon">{scenario.verdict === "PASS" ? <ShieldCheck /> : scenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
+        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{scenario.verdict}</h2><span>{verdict.label}</span></div><p>{scenario.suggestedAction}</p></div>
+        <button className="primary-button" onClick={runCheck} disabled={status === "checking"}>{status === "checking" ? "Checking decision…" : status === "complete" ? "Check complete" : "Run monitoring check"}<ArrowUpRight size={17} /></button>
+      </section>
+
+      <div className="bottom-grid">
+        <section className="card risk-card"><div className="section-heading"><div><p className="eyebrow">RISK EXPLANATION</p><h2>What went wrong?</h2></div><div className={`score ${verdict.className}`}>{scenario.riskScore}<small>/100</small></div></div><ul>{scenario.riskFactors.map((factor) => <li key={factor}><span><Check size={13} /></span>{factor}</li>)}</ul></section>
+        <section className="card action-card"><p className="eyebrow">RECOMMENDED ACTION</p><h2>{scenario.verdict === "PASS" ? "Approve this decision" : scenario.verdict === "WARNING" ? "Review before ordering" : "Do not execute"}</h2><p className="muted">If gives the operator a clear next step instead of silently replacing the customer's AI.</p><button className="secondary-button">View full audit trail <ArrowUpRight size={16} /></button></section>
+      </div>
+      <footer>IF / INVENTORY ASSURANCE <span>Demo data · Backend integration points are marked in services/api.ts</span></footer>
+    </main>
+  );
+}
+
+function Metric({ label, value, suffix, tone = "default" }: { label: string; value: string; suffix: string; tone?: string }) { return <div className={`metric ${tone}`}><span>{label}</span><strong>{value}<small>{suffix}</small></strong></div>; }
+function DataRow({ label, value }: { label: string; value: string }) { return <div className="data-row"><span>{label}</span><strong>{value}</strong></div>; }
+function MiniStat({ label, value }: { label: string; value: string }) { return <div><span>{label}</span><strong>{value}</strong></div>; }
+
+export default App;
