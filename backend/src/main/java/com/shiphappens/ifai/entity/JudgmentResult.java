@@ -29,4 +29,13 @@ public class JudgmentResult {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    public static JudgmentResult of(String itemName, Integer riskScore, Verdict verdict, RiskFactor riskFactor) {
+        return JudgmentResult.builder()
+                .itemName(itemName)
+                .RiskScore(riskScore)
+                .verdict(verdict)
+                .riskFactor(riskFactor)
+                .build();
+    }
+
 }
