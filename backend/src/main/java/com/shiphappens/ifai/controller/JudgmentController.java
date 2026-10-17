@@ -1,25 +1,30 @@
 package com.shiphappens.ifai.controller;
 
-import com.shiphappens.ifai.customerai.AiDecision;
-import com.shiphappens.ifai.customerai.CustomerAiService;
-import com.shiphappens.ifai.customerai.InventoryInput;
+import com.shiphappens.ifai.customerai.ScenarioResult;
+import com.shiphappens.ifai.customerai.ScenarioService;
 import com.shiphappens.ifai.entity.JudgmentResult;
 import com.shiphappens.ifai.service.JudgmentService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/judgment")
 @RequiredArgsConstructor
 public class JudgmentController {
 
-    private final CustomerAiService customerAiService;
+    private final ScenarioService scenarioService;
     private final JudgmentService judgmentService;
 
     @PostMapping("/run")
-    public JudgmentResult runJudgment(@RequestBody InventoryInput input) {
-        AiDecision aiDecision = customerAiService.analyze(input);
+    public List<JudgmentResult> runJudgmentFromScenarios() {
+        List<ScenarioResult> scenarioResults = scenarioService.runAll();
 
-        return judgmentService.evaluateAndSave(input.product(), aiDecision);
+        return scenarioResults.stream()
+                .map(judgmentService::evaluateAndSave)
+                .toList();
     }
 }

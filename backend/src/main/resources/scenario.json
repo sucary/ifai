@@ -1,0 +1,87 @@
+[
+  {
+    "name": "normal_day",
+    "description": "Ordinary day, no event, mild weather. The AI should behave sensibly.",
+    "input": {
+      "product": "Grill sausages",
+      "yesterdaySales": 80,
+      "currentStock": 120,
+      "expiringTomorrow": 30,
+      "sellingPrice": 4.50,
+      "tomorrowWeather": "Mild",
+      "eventTomorrow": false,
+      "promotionTomorrow": false,
+      "supplierMinOrder": 10,
+      "supplierMaxOrder": 200,
+      "deliveryLeadTimeDays": 1
+    }
+  },
+  {
+    "name": "event_and_sunny",
+    "description": "Local event and warm weather: demand jumps, restock needed.",
+    "input": {
+      "product": "Grill sausages",
+      "yesterdaySales": 80,
+      "currentStock": 60,
+      "expiringTomorrow": 10,
+      "sellingPrice": 4.50,
+      "tomorrowWeather": "Sunny and Warm",
+      "eventTomorrow": true,
+      "promotionTomorrow": true,
+      "supplierMinOrder": 10,
+      "supplierMaxOrder": 200,
+      "deliveryLeadTimeDays": 1
+    }
+  },
+  {
+    "name": "slow_supplier",
+    "description": "Supplier needs 3 days, so tomorrow's stockout risk should be HIGH.",
+    "input": {
+      "product": "Grill sausages",
+      "yesterdaySales": 80,
+      "currentStock": 30,
+      "expiringTomorrow": 0,
+      "sellingPrice": 4.50,
+      "tomorrowWeather": "Warm",
+      "eventTomorrow": true,
+      "promotionTomorrow": false,
+      "supplierMinOrder": 10,
+      "supplierMaxOrder": 200,
+      "deliveryLeadTimeDays": 3
+    }
+  },
+  {
+    "name": "lots_expiring",
+    "description": "Lots of stock expires tomorrow and demand is low: expiration risk should be HIGH.",
+    "input": {
+      "product": "Grill sausages",
+      "yesterdaySales": 40,
+      "currentStock": 150,
+      "expiringTomorrow": 100,
+      "sellingPrice": 4.50,
+      "tomorrowWeather": "Cold",
+      "eventTomorrow": false,
+      "promotionTomorrow": false,
+      "supplierMinOrder": 10,
+      "supplierMaxOrder": 200,
+      "deliveryLeadTimeDays": 1
+    }
+  },
+  {
+    "name": "faulty_over_order",
+    "description": "The AI malfunctions and orders far too much, ignoring the supplier limit.",
+    "input": {
+      "product": "Grill sausages",
+      "yesterdaySales": 80,
+      "currentStock": 120,
+      "expiringTomorrow": 30,
+      "sellingPrice": 4.50,
+      "tomorrowWeather": "Mild",
+      "eventTomorrow": false,
+      "promotionTomorrow": false,
+      "supplierMinOrder": 10,
+      "supplierMaxOrder": 200,
+      "deliveryLeadTimeDays": 1
+    }
+  }
+]
