@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AlertTriangle, ArrowUpRight, Check, ChevronDown, ShieldCheck, ShieldX } from "lucide-react";
 import { getScenarios, runMonitoringCheck } from "./services/api";
-import type { Judgment, SalesPoint, Scenario, Verdict } from "./types";
+import type { Judgment, Scenario, Verdict } from "./types";
 
 const verdictCopy: Record<Verdict, { label: string; className: string }> = {
   PASS: { label: "Approved", className: "pass" },
@@ -16,18 +16,7 @@ function App() {
   const [error, setError] = useState<string | null>(null);
   const [judgments, setJudgments] = useState<Judgment[]>([]);
 
-  useEffect(() => {
-    getScenarios().then(setScenarios).catch((reason: Error) => setError(reason.message));
-  }, []);
-
-  const scenario = useMemo(
-    () => scenarios.find((item) => item.id === selectedId) ?? scenarios[0],
-    [scenarios, selectedId],
-  );
-
-  if (!scenario) return <main className="loading-screen">Loading database data…</main>;
-
-  const runCheck = async () => {
+  const runCheck = useCallback(async () => {
     setStatus("checking");
     setError(null);
     try {
@@ -37,13 +26,41 @@ function App() {
       setStatus("idle");
       setError(reason instanceof Error ? reason.message : "Monitoring check failed.");
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+
+    const loadAndCheck = async () => {
+      try {
+        const loadedScenarios = await getScenarios();
+        if (!active) return;
+        setScenarios(loadedScenarios);
+        await runCheck();
+      } catch (reason) {
+        if (active) setError(reason instanceof Error ? reason.message : "Could not load monitoring data.");
+      }
+    };
+
+    void loadAndCheck();
+    const interval = window.setInterval(() => void runCheck(), 60_000);
+
+    return () => {
+      active = false;
+      window.clearInterval(interval);
+    };
+  }, [runCheck]);
+
+  const scenario = useMemo(
+    () => scenarios.find((item) => item.id === selectedId) ?? scenarios[0],
+    [scenarios, selectedId],
+  );
+
+  if (!scenario) return <main className="loading-screen">Loading database data…</main>;
 
   const judgment = judgments[scenarios.indexOf(scenario)];
   const effectiveScenario = judgment ? { ...scenario, verdict: judgment.verdict, riskScore: judgment.RiskScore, judgmentRiskFactor: judgment.riskFactor } : scenario;
   const verdict = verdictCopy[effectiveScenario.verdict];
-  const salesSeries = scenario.salesSeries ?? [{ date: scenario.date, value: scenario.historicalAverage, kind: "historical" as const }];
-
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -93,17 +110,12 @@ function App() {
           <div className="section-heading"><div><p className="eyebrow">02 / EXTERNAL SYSTEM</p><h2>Customer AI decision</h2></div><span className="tag purple">Database forecast</span></div>
           <div className="ai-order"><span>Recommended order</span><strong>{scenario.recommendedOrder}<small> units</small></strong></div>
           <p className="muted">“{scenario.aiReasoning}”</p>
+          <p className="order-explanation">
+            The customer AI recommended {scenario.recommendedOrder > 0 ? `ordering ${scenario.recommendedOrder} extra units` : "no additional order"}. IF checks whether that recommendation is justified by forecast demand, current stock, expiry risk, and supplier limits.
+          </p>
           <div className="mini-stats"><MiniStat label="Expected waste" value={`${scenario.predictedWaste} units`} /><MiniStat label="Stockout risk" value={`${scenario.stockoutRisk}%`} /><MiniStat label="Expiration risk" value={`${scenario.expirationRisk}%`} /></div>
         </section>
       </div>
-
-      <section className="card chart-card">
-        <div className="section-heading"><div><p className="eyebrow">SALES SIGNAL</p><h2>Historical sales vs. forecast</h2></div><div className="legend"><span className="legend-dot history" />Historical <span className="legend-dot forecast" />Forecast</div></div>
-        <p className="muted data-note">Historical bars are recorded sales. Forecast bars are calculated future estimates, separated by date.</p>
-        <div className="chart" aria-label="Historical sales and forecast chart">
-          {salesSeries.map((point) => <SalesBar point={point} key={`${point.date}-${point.kind}`} max={Math.max(...salesSeries.map((item) => item.value), 1)} />)}
-        </div>
-      </section>
 
       <section className={`verdict-card ${verdict.className}`}>
         <div className="verdict-icon">{effectiveScenario.verdict === "PASS" ? <ShieldCheck /> : effectiveScenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
@@ -119,11 +131,6 @@ function App() {
       <footer>IF / INVENTORY ASSURANCE <span>Turku SQLite data · Backend integration through services/api.ts</span></footer>
     </main>
   );
-}
-
-function SalesBar({ point, max }: { point: SalesPoint; max: number }) {
-  const label = point.kind === "forecast" ? point.date.slice(5) : point.date.slice(5);
-  return <div className={`bar-group ${point.kind === "forecast" ? "forecast-bar" : ""}`} title={`${point.date}: ${point.value} units (${point.kind})`}><div className="bar" style={{ height: `${Math.max(20, (point.value / max) * 100)}%` }} /><span>{label}</span></div>;
 }
 
 function Metric({ label, value, suffix, detail, tone = "default" }: { label: string; value: string; suffix: string; detail?: string; tone?: string }) { return <div className={`metric ${tone}`}><span>{label}</span><strong>{value}<small>{suffix}</small></strong>{detail && <em>{detail}</em>}</div>; }
