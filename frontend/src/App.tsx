@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowUpRight, Check, ChevronDown, ShieldCheck, ShieldX } from "lucide-react";
+import { AlertTriangle, Check, ChevronDown, ShieldCheck, ShieldX } from "lucide-react";
 import { getScenarios, runMonitoringCheck } from "./services/api";
 import type { Judgment, Scenario, Verdict } from "./types";
 
@@ -15,13 +15,17 @@ function App() {
   const [status, setStatus] = useState<"idle" | "checking" | "complete">("idle");
   const [error, setError] = useState<string | null>(null);
   const [judgments, setJudgments] = useState<Judgment[]>([]);
+  const [checkedDescriptionId, setCheckedDescriptionId] = useState<string | null>(null);
+  const [riskOrders, setRiskOrders] = useState<Record<string, string[]>>({});
+  const [draggedRisk, setDraggedRisk] = useState<{ scenarioId: string; factor: string } | null>(null);
 
-  const runCheck = useCallback(async () => {
+  const runCheck = useCallback(async (descriptionId?: string) => {
     setStatus("checking");
     setError(null);
     try {
       setJudgments(await runMonitoringCheck());
       setStatus("complete");
+      if (descriptionId) setCheckedDescriptionId(descriptionId);
     } catch (reason) {
       setStatus("idle");
       setError(reason instanceof Error ? reason.message : "Monitoring check failed.");
@@ -61,6 +65,17 @@ function App() {
   const judgment = judgments[scenarios.indexOf(scenario)];
   const effectiveScenario = judgment ? { ...scenario, verdict: judgment.verdict, riskScore: judgment.RiskScore, judgmentRiskFactor: judgment.riskFactor } : scenario;
   const verdict = verdictCopy[effectiveScenario.verdict];
+  const savedOrder = riskOrders[scenario.id] ?? [];
+  const orderedRisks = [
+    ...savedOrder.filter((factor) => effectiveScenario.riskFactors.includes(factor)),
+    ...effectiveScenario.riskFactors.filter((factor) => !savedOrder.includes(factor)),
+  ];
+  const moveRisk = (factor: string, target: string) => {
+    if (factor === target) return;
+    const reordered = orderedRisks.filter((item) => item !== factor);
+    reordered.splice(reordered.indexOf(target), 0, factor);
+    setRiskOrders((previous) => ({ ...previous, [scenario.id]: reordered }));
+  };
   return (
     <main className="app-shell">
       <header className="topbar">
@@ -77,7 +92,7 @@ function App() {
         <div className="scenario-picker">
           <label htmlFor="scenario">Database scenario</label>
           <div className="select-wrap">
-            <select id="scenario" value={scenario.id} onChange={(event) => { setSelectedId(event.target.value); setJudgments([]); setStatus("idle"); setError(null); }}>
+            <select id="scenario" value={scenario.id} onChange={(event) => { setSelectedId(event.target.value); setCheckedDescriptionId(null); setJudgments([]); setStatus("idle"); setError(null); }}>
               {scenarios.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
             </select>
             <ChevronDown size={16} />
@@ -88,14 +103,13 @@ function App() {
 
       <section className="metric-grid">
         <Metric label="Current stock" value={`${scenario.currentStock}`} suffix="units" />
-        <Metric label="Predicted sales" value={`${scenario.predictedSales}`} suffix="units" tone="blue" />
-        <Metric label="AI recommended order" value={`${scenario.recommendedOrder}`} suffix="units" tone="orange" />
-        <Metric label="Risk score" value={`${effectiveScenario.riskScore}`} suffix="/ 100" detail={effectiveScenario.riskExposureEur !== undefined ? `≈ €${effectiveScenario.riskExposureEur.toFixed(2)} exposure` : undefined} tone={effectiveScenario.verdict === "PASS" ? "green" : "red"} />
+        <Metric label="Predicted sales" value={`${scenario.predictedSales}`} suffix="units" />
+        <Metric label="AI recommended order" value={`${scenario.recommendedOrder}`} suffix="units" />
       </section>
 
       <div className="content-grid">
         <section className="card input-card">
-          <div className="section-heading"><div><p className="eyebrow">01 / CONTEXT</p><h2>What If received</h2></div><span className="tag">Turku data</span></div>
+          <div className="section-heading"><div><p className="eyebrow">01 / CONTEXT</p><h2>What If received</h2></div></div>
           <div className="data-list">
             <DataRow label="Weather" value={scenario.weather} />
             <DataRow label="Event" value={scenario.event} />
@@ -107,25 +121,55 @@ function App() {
         </section>
 
         <section className="card ai-card">
-          <div className="section-heading"><div><p className="eyebrow">02 / EXTERNAL SYSTEM</p><h2>Customer AI decision</h2></div><span className="tag purple">Database forecast</span></div>
+          <div className="section-heading"><div><p className="eyebrow">02 / EXTERNAL SYSTEM</p><h2>Customer AI decision</h2></div></div>
           <div className="ai-order"><span>Recommended order</span><strong>{scenario.recommendedOrder}<small> units</small></strong></div>
           <p className="muted">“{scenario.aiReasoning}”</p>
-          <p className="order-explanation">
-            The customer AI recommended {scenario.recommendedOrder > 0 ? `ordering ${scenario.recommendedOrder} extra units` : "no additional order"}. IF checks whether that recommendation is justified by forecast demand, current stock, expiry risk, and supplier limits.
-          </p>
           <div className="mini-stats"><MiniStat label="Expected waste" value={`${scenario.predictedWaste} units`} /><MiniStat label="Stockout risk" value={`${scenario.stockoutRisk}%`} /><MiniStat label="Expiration risk" value={`${scenario.expirationRisk}%`} /></div>
+          <button className="primary-button" onClick={() => void runCheck(scenario.id)} disabled={status === "checking"}>{status === "checking" ? "Checking decision…" : status === "complete" ? "Check complete" : "Run monitoring check"}</button>
         </section>
       </div>
 
-      <section className={`verdict-card ${verdict.className}`}>
-        <div className="verdict-icon">{effectiveScenario.verdict === "PASS" ? <ShieldCheck /> : effectiveScenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
-        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{effectiveScenario.verdict}</h2><span>{verdict.label}</span></div><p>{effectiveScenario.suggestedAction}</p>{effectiveScenario.judgmentRiskFactor && <p className="muted">Signal: {effectiveScenario.judgmentRiskFactor}</p>}</div>
-        <button className="primary-button" onClick={runCheck} disabled={status === "checking"}>{status === "checking" ? "Checking decision…" : status === "complete" ? "Check complete" : "Run monitoring check"}<ArrowUpRight size={17} /></button>
-      </section>
+      <div className="monitoring-grid">
 
-      <div className="bottom-grid">
-        <section className="card risk-card"><div className="section-heading"><div><p className="eyebrow">RISK EXPLANATION</p><h2>What went wrong?</h2></div><div className={`score ${verdict.className}`}>{effectiveScenario.riskScore}<small>/100</small></div></div><ul>{effectiveScenario.riskFactors.map((factor) => <li key={factor}><span><Check size={13} /></span>{factor}</li>)}</ul></section>
-        <section className="card action-card"><p className="eyebrow">RECOMMENDED ACTION</p><h2>{effectiveScenario.verdict === "PASS" ? "Approve this decision" : effectiveScenario.verdict === "WARNING" ? "Review before ordering" : "Do not execute"}</h2><p className="muted">If gives the operator a clear next step instead of silently replacing the customer's AI.</p><button className="secondary-button" onClick={() => setError("A full audit-trail endpoint is not available yet. The latest monitoring result is shown above.")}>View full audit trail <ArrowUpRight size={16} /></button></section>
+
+
+        <section className={`card risk-card ${verdict.className}`}>
+      <section className="verdict-card">
+        <div className="verdict-icon">{effectiveScenario.verdict === "PASS" ? <ShieldCheck /> : effectiveScenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
+        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{effectiveScenario.verdict}</h2><div className={`score ${verdict.className}`}>{effectiveScenario.riskScore}<small>/100</small></div></div>{checkedDescriptionId === scenario.id && <p>{effectiveScenario.suggestedAction}</p>}</div>
+      </section>
+<div className="section-heading"><div><p className="eyebrow">RISK EXPLANATION</p><h2>What went wrong?</h2></div></div>
+          <ul>{orderedRisks.map((factor, index) => (
+            <li key={factor} draggable tabIndex={0}
+              className={draggedRisk?.scenarioId === scenario.id && draggedRisk.factor === factor ? "risk-dragging" : undefined}
+              aria-label={`${factor} Use arrow keys to reorder.`}
+              onDragStart={(event) => {
+                event.dataTransfer.effectAllowed = "move";
+                event.dataTransfer.setData("text/plain", factor);
+                setDraggedRisk({ scenarioId: scenario.id, factor });
+              }}
+              onDragOver={(event) => {
+                if (draggedRisk?.scenarioId === scenario.id) {
+                  event.preventDefault();
+                  event.dataTransfer.dropEffect = "move";
+                }
+              }}
+              onDrop={(event) => {
+                event.preventDefault();
+                if (draggedRisk?.scenarioId === scenario.id) moveRisk(draggedRisk.factor, factor);
+                setDraggedRisk(null);
+              }}
+              onDragEnd={() => setDraggedRisk(null)}
+              onKeyDown={(event) => {
+                const offset = event.key === "ArrowLeft" || event.key === "ArrowUp" ? -1 : event.key === "ArrowRight" || event.key === "ArrowDown" ? 1 : 0;
+                if (!offset) return;
+                event.preventDefault();
+                const target = orderedRisks[index + offset];
+                if (target) moveRisk(factor, target);
+              }}
+            ><span><Check size={13} /></span>{factor}</li>
+          ))}</ul>
+        </section>
       </div>
       {error && <p className="error-message" role="alert">{error}</p>}
       <footer>IF / INVENTORY ASSURANCE <span>Turku SQLite data · Backend integration through services/api.ts</span></footer>

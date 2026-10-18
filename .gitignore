@@ -36,3 +36,11 @@ out/
 ### VS Code ###
 .vscode/
 
+### Frontend dependencies, caches, and build output ###
+/frontend/node_modules/
+/frontend/.vite/
+/frontend/dist/
+/frontend/*.tsbuildinfo
+/frontend/vite.config.js
+/frontend/vite.config.d.ts
+
