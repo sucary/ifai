@@ -23,6 +23,7 @@ export type Scenario = {
   riskScore: number;
   riskExposureEur?: number;
   riskFactors: string[];
+  riskStatuses?: Record<string, "pass" | "warning">;
   suggestedAction: string;
   salesHistory: number[];
   salesSeries?: SalesPoint[];

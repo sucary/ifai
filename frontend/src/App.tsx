@@ -66,9 +66,10 @@ function App() {
   const effectiveScenario = judgment ? { ...scenario, verdict: judgment.verdict, riskScore: judgment.RiskScore, judgmentRiskFactor: judgment.riskFactor } : scenario;
   const verdict = verdictCopy[effectiveScenario.verdict];
   const savedOrder = riskOrders[scenario.id] ?? [];
+  const warningFactors = effectiveScenario.riskFactors.filter((factor) => effectiveScenario.riskStatuses?.[factor] !== "pass");
   const orderedRisks = [
-    ...savedOrder.filter((factor) => effectiveScenario.riskFactors.includes(factor)),
-    ...effectiveScenario.riskFactors.filter((factor) => !savedOrder.includes(factor)),
+    ...savedOrder.filter((factor) => warningFactors.includes(factor)),
+    ...warningFactors.filter((factor) => !savedOrder.includes(factor)),
   ];
   const moveRisk = (factor: string, target: string) => {
     if (factor === target) return;
@@ -129,15 +130,16 @@ function App() {
         </section>
       </div>
 
-      <div className="monitoring-grid">
+      {checkedDescriptionId === scenario.id && <div className="monitoring-grid">
 
 
 
-        <section className={`card risk-card ${verdict.className}`}>
+        <section className={`card risk-card ${verdict.className}${orderedRisks.length === 0 ? " no-risk-items" : ""}`}>
       <section className="verdict-card">
         <div className="verdict-icon">{effectiveScenario.verdict === "PASS" ? <ShieldCheck /> : effectiveScenario.verdict === "WARNING" ? <AlertTriangle /> : <ShieldX />}</div>
-        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{effectiveScenario.verdict}</h2><div className={`score ${verdict.className}`}>{effectiveScenario.riskScore}<small>/100</small></div></div>{checkedDescriptionId === scenario.id && <p>{effectiveScenario.suggestedAction}</p>}</div>
+        <div className="verdict-main"><p className="eyebrow">03 / IF MONITORING VERDICT</p><div className="verdict-title"><h2>{effectiveScenario.verdict}</h2><div className={`score ${verdict.className}`}>{effectiveScenario.riskScore}<small>/100</small></div></div></div>
       </section>
+          {checkedDescriptionId === scenario.id && orderedRisks.length > 0 && <>
 <div className="section-heading"><div><p className="eyebrow">RISK EXPLANATION</p><h2>What went wrong?</h2></div></div>
           <ul>{orderedRisks.map((factor, index) => (
             <li key={factor} draggable tabIndex={0}
@@ -167,10 +169,12 @@ function App() {
                 const target = orderedRisks[index + offset];
                 if (target) moveRisk(factor, target);
               }}
-            ><span><Check size={13} /></span>{factor}</li>
+            ><span className={`risk-status-${effectiveScenario.riskStatuses?.[factor] ?? "warning"}`} role="img" aria-label={effectiveScenario.riskStatuses?.[factor] === "pass" ? "Passed" : "Warning"}>{effectiveScenario.riskStatuses?.[factor] === "pass" ? <Check size={13} aria-hidden="true" /> : <b aria-hidden="true">!</b>}</span>{factor}</li>
           ))}</ul>
+          </>}
         </section>
       </div>
+      }
       {error && <p className="error-message" role="alert">{error}</p>}
       <footer>IF / INVENTORY ASSURANCE <span>Turku SQLite data · Backend integration through services/api.ts</span></footer>
     </main>

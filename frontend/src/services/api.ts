@@ -33,6 +33,11 @@ export async function getScenarios(): Promise<Scenario[]> {
         decision.expirationRisk === "HIGH" ? `${input.expiringTomorrow} units may expire tomorrow.` : "Expiration risk is low.",
         input.deliveryLeadTimeDays > 1 ? `Supplier delivery takes ${input.deliveryLeadTimeDays} days.` : "Supplier delivery arrives within one day.",
       ],
+      riskStatuses: {
+        [decision.stockoutRisk === "HIGH" ? "The decision leaves a high stockout risk." : "Stockout risk is low."]: decision.stockoutRisk === "HIGH" ? "warning" : "pass",
+        [decision.expirationRisk === "HIGH" ? `${input.expiringTomorrow} units may expire tomorrow.` : "Expiration risk is low."]: decision.expirationRisk === "HIGH" ? "warning" : "pass",
+        [input.deliveryLeadTimeDays > 1 ? `Supplier delivery takes ${input.deliveryLeadTimeDays} days.` : "Supplier delivery arrives within one day."]: input.deliveryLeadTimeDays > 1 ? "warning" : "pass",
+      },
       suggestedAction: item.description,
       salesHistory: [input.yesterdaySales],
       salesSeries: (item.salesSeries ?? [{ date: new Date().toISOString().slice(0, 10), value: input.yesterdaySales, kind: "historical" }]) as SalesPoint[],
